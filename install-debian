@@ -260,7 +260,7 @@ do_configure () {
 	then
 		on_target bash -c "echo ${NEWHOSTNAME} > /etc/hostname"
 	fi
-	on_target adduser --add_extra_groups $NEWUSER
+	on_target adduser --add_extra_groups --force-badname $NEWUSER
 	on_target adduser $NEWUSER sudo
 
 	on_target dpkg-reconfigure keyboard-configuration
