@@ -144,7 +144,8 @@ do_debootstrap () {
 	fi
 
 	sudo tar -C ${SYSIMAGE} -xf debootstrap-${RELEASE}-${ARCH}.tar.gz
-	sudo fallocate -l 4g ${SYSIMAGE}/swapfile
+	printf '\n\n>>>> Creating Swapfile\n\n'
+	sudo dd if=/dev/zero of=${SYSIMAGE}/swapfile bs=1M count=4096 status=progress
 	sudo chmod 600 ${SYSIMAGE}/swapfile
 	sudo mkswap ${SYSIMAGE}/swapfile
 	build_from_template etc/fstab
@@ -222,6 +223,7 @@ do_kernel () {
 	on_target dpkg --add-architecture arm64
 	on_target apt-get update
 	on_target bash -c "dpkg -i /root/linux/*.deb"
+	on_target apt-mark hold linux-libc-dev
 }
 
 do_firmware () {
@@ -232,7 +234,7 @@ do_firmware () {
 	sudo install -Dm644 ap6256-firmware/nvram_ap6256.txt ${SYSIMAGE}/lib/firmware/brcm/brcmfmac43456-sdio.txt
 	sudo install -Dm644 ap6256-firmware/nvram_ap6256.txt ${SYSIMAGE}/lib/firmware/brcm/brcmfmac43456-sdio.pine64,pinebook-pro.txt
 	sudo install -Dm644 ap6256-firmware/fw_bcm43456c5_ag.bin ${SYSIMAGE}/lib/firmware/brcm/brcmfmac43456-sdio.bin
-	sudo install -Dm644 ap6256-firmware/brcmfmac43456-sdio.clm_blob $SYSIMAGE}/lib/firmware/brcm/brcmfmac43456-sdio.clm_blob
+	sudo install -Dm644 ap6256-firmware/brcmfmac43456-sdio.clm_blob ${SYSIMAGE}/lib/firmware/brcm/brcmfmac43456-sdio.clm_blob
 	sudo install -Dm644 pinebook-firmware/rockchip/dptx.bin ${SYSIMAGE}/lib/firmware/rockchip/
 }
 
@@ -266,7 +268,6 @@ do_tasksel () {
 		on_target apt-get -y update -oAcquire::AllowInsecureRepositories=true
  		on_target apt-get -y install deb-multimedia-keyring --allow-unauthenticated
 		on_target apt-get -y update
-		on_target apt-get -y dist-upgrade
 	fi
 
 	if [ $INSTALLBASE = yes ]; then
