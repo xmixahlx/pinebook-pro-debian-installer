@@ -30,7 +30,7 @@ on_target () {
 do_prep () {
 	printf '\n\n>>>> Preparing to install\n\n'
 
-	git submodule update --init
+	git submodule update --recursive --remote
 
 	PACKAGES="debootstrap pigz dosfstools"
 	[ ! -z "$CRYPT" ] && PACKAGES="$PACKAGES cryptsetup"
@@ -104,29 +104,24 @@ do_mkfs () {
 do_mount () {
 	printf '\n\n>>>> Mounting target filesystem\n\n'
 
+	mkdir -p ${SYSIMAGE}
 	if [ -z "$CRYPT" ]
 	then
-		mkdir -p ${SYSIMAGE}
 		sudo mount ${PARTITION}6 ${SYSIMAGE}
 		sudo mkdir -p ${SYSIMAGE}/home
 		sudo mount ${PARTITION}7 ${SYSIMAGE}/home
-		sudo mkdir -p ${SYSIMAGE}/boot
-		sudo mount ${PARTITION}5 ${SYSIMAGE}/boot
-		sudo mkdir -p ${SYSIMAGE}/boot/efi
-		sudo mount ${PARTITION}4 ${SYSIMAGE}/boot/efi
 	else
-		mkdir -p ${SYSIMAGE}
 		[ ! -e /dev/mapper/${BLKNAME}-RootFS ] \
 			&& sudo cryptsetup open ${PARTITION}6 ${BLKNAME}-RootFS
 		sudo mount /dev/mapper/${BLKNAME}-RootFS ${SYSIMAGE}
 		[ ! -e /dev/mapper/${BLKNAME}-Home ] \
 			&& sudo cryptsetup open ${PARTITION}7 ${BLKNAME}-Home
 		sudo mount /dev/mapper/${BLKNAME}-Home ${SYSIMAGE}/home
-		sudo mkdir -p ${SYSIMAGE}/boot
-		sudo mount ${PARTITION}5 ${SYSIMAGE}/boot
-		sudo mkdir -p ${SYSIMAGE}/boot/efi
-		sudo mount ${PARTITION}4 ${SYSIMAGE}/boot/efi
 	fi
+	sudo mkdir -p ${SYSIMAGE}/boot
+	sudo mount ${PARTITION}5 ${SYSIMAGE}/boot
+	sudo mkdir -p ${SYSIMAGE}/boot/efi
+	sudo mount ${PARTITION}4 ${SYSIMAGE}/boot/efi
 }
 
 #
@@ -155,6 +150,7 @@ do_debootstrap () {
 	build_from_template etc/fstab
 	sudo install -m644 etc/fstab ${SYSIMAGE}/etc/fstab
 	sudo install -m644 etc/apt/sources.list.${RELEASE} ${SYSIMAGE}/etc/apt/sources.list
+	sudo install -m644 etc/apt/preferences.${RELEASE} ${SYSIMAGE}/etc/apt/preferences
 
 	if [ ! -z "$CRYPT" ]
 	then
@@ -221,20 +217,23 @@ do_kernel () {
 	sudo install -m644 pinebookpro-post-install/asound.state ${SYSIMAGE}/var/lib/alsa/asound.state
         sudo mkdir -p ${SYSIMAGE}/etc/udev/hwdb.d/
         sudo install -m644 pinebookpro-post-install/10-usb-kbd.hwdb ${SYSIMAGE}/etc/udev/hwdb.d/10-usb-kbd.hwdb
-	sudo mkdir -p ${SYSIMAGE}/tmp
-	sudo install -m644 debian-packages/pbp-tools/linux/stable/*.deb ${SYSIMAGE}/tmp/
+	sudo mkdir -p ${SYSIMAGE}/root/linux
+	sudo install -m644 debian-packages/pbp-tools/linux/${LINUXRELEASE}/*.deb ${SYSIMAGE}/root/linux/
 	on_target dpkg --add-architecture arm64
 	on_target apt-get update
-	on_target bash -c "dpkg -i /tmp/*.deb"
+	on_target bash -c "dpkg -i /root/linux/*.deb"
 }
 
 do_firmware () {
 	printf '\n\n>>>> Installed additional firmware files\n\n'
 
 	sudo mkdir -p ${SYSIMAGE}/lib/firmware/{brcm,rockchip}
-	sudo cp -a ap6256-firmware/*.[bcht]* ${SYSIMAGE}/lib/firmware/brcm/
-	sudo cp -a pinebook-firmware/brcm/* ${SYSIMAGE}/lib/firmware/brcm/
-	sudo cp -a pinebook-firmware/rockchip/* ${SYSIMAGE}/lib/firmware/rockchip/
+	sudo install -Dm644 ap6256-firmware/BCM4345C5.hcd ${SYSIMAGE}/lib/firmware/brcm/
+	sudo install -Dm644 ap6256-firmware/nvram_ap6256.txt ${SYSIMAGE}/lib/firmware/brcm/brcmfmac43456-sdio.txt
+	sudo install -Dm644 ap6256-firmware/nvram_ap6256.txt ${SYSIMAGE}/lib/firmware/brcm/brcmfmac43456-sdio.pine64,pinebook-pro.txt
+	sudo install -Dm644 ap6256-firmware/fw_bcm43456c5_ag.bin ${SYSIMAGE}/lib/firmware/brcm/brcmfmac43456-sdio.bin
+	sudo install -Dm644 ap6256-firmware/brcmfmac43456-sdio.clm_blob $SYSIMAGE}/lib/firmware/brcm/brcmfmac43456-sdio.clm_blob
+	sudo install -Dm644 pinebook-firmware/rockchip/dptx.bin ${SYSIMAGE}/lib/firmware/rockchip/
 }
 
 do_configure () {
@@ -261,6 +260,19 @@ do_configure () {
 
 do_tasksel () {
 	printf '\n\n>>>> Task selection\n\n'
+
+	if [ $DEBMULTIMEDIA = yes ]; then
+		sudo install -m644 etc/apt/deb-multimedia-${RELEASE}.list ${SYSIMAGE}/etc/apt/sources.list.d/
+		on_target apt-get -y update -oAcquire::AllowInsecureRepositories=true
+ 		on_target apt-get -y install deb-multimedia-keyring --allow-unauthenticated
+		on_target apt-get -y update
+		on_target apt-get -y dist-upgrade
+	fi
+
+	if [ $INSTALLBASE = yes ]; then
+		on_target apt-get -y install brightnessctl brightness-udev alsa-utils alsa-tools
+	fi
+
 	on_target tasksel
 }
 
@@ -322,8 +334,40 @@ do_all () {
 	do_tasksel
 }
 
-ARCH=arm64
-RELEASE=bullseye
+# Override arm64 with armhf
+if [ -z $ARCH ]; then
+	ARCH=arm64
+fi
+echo "*** ARCH selected is $ARCH."
+
+# Override bullseye with buster or sid
+if [ -z $RELEASE ]; then
+	RELEASE=bullseye
+fi
+echo "*** RELEASE selected is $RELEASE."
+
+# Override stable with testing
+if [ -z $LINUXRELEASE ]; then
+	LINUXRELEASE=stable
+fi
+echo "*** LINUXRELEASE selected is $LINUXRELEASE."
+
+# Override yes with no
+if [ -z $INSTALLBASE ]; then
+	INSTALLBASE=yes
+fi
+echo "*** INSTALLBASE selected is $INSTALLBASE."
+
+# Override yes with no
+if [ -z $DEBMULTIMEDIA ]; then
+	DEBMULTIMEDIA=yes
+fi
+echo "*** DEBMULTIMEDIA selected is $DEBMULTIMEDIA."
+
+# Display BLKDEV
+echo "*** BLKDEV selected is $BLKDEV."
+
+
 SYSIMAGE="${PWD}/sysimage"
 MMCBLK="$(readlink -f /dev/disk/by-path/platform-fe320000.*mmc)"
 

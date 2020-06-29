@@ -11,3 +11,6 @@
 [submodule "debian-packages"]
 	path = debian-packages
 	url = https://github.com/xmixahlx/debian-packages.git
+[submodule "pinebook-firmware"]
+	path = pinebook-firmware
+	url = https://gitlab.manjaro.org/tsys/pinebook-firmware.git
