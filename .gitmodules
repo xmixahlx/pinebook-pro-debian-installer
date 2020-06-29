@@ -1,13 +1,10 @@
 [submodule "bootloader"]
 	path = bootloader
-	url = https://github.com/mrfixit2001/updates_repo
-	branch = v1.5
-[submodule "firmware"]
-	path = pinebook-firmware
-	url = https://gitlab.manjaro.org/tsys/pinebook-firmware.git
+	url = https://github.com/mrfixit2001/updates_repo.git
+	branch = v2.0
 [submodule "ap6256-firmware"]
 	path = ap6256-firmware
-	url = https://gitlab.manjaro.org/manjaro-arm/packages/community/ap6256-firmware
+	url = https://gitlab.manjaro.org/manjaro-arm/packages/community/ap6256-firmware.git
 [submodule "pinebookpro-post-install"]
 	path = pinebookpro-post-install
 	url = https://gitlab.manjaro.org/manjaro-arm/packages/community/pinebookpro-post-install.git
