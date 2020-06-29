@@ -154,7 +154,6 @@ do_debootstrap () {
 	sudo mkswap ${SYSIMAGE}/swapfile
 	build_from_template etc/fstab
 	sudo install -m644 etc/fstab ${SYSIMAGE}/etc/fstab
-	sudo install -m644 etc/tmpfiles.d/* ${SYSIMAGE}/etc/tmpfiles.d
 	sudo install -m644 etc/apt/sources.list.${RELEASE} ${SYSIMAGE}/etc/apt/sources.list
 
 	if [ ! -z "$CRYPT" ]
@@ -217,24 +216,16 @@ do_kernel () {
 	printf '\n\n>>>> Installing kernel\n\n'
 
 	cat etc/default/u-boot.append | sudo tee -a ${SYSIMAGE}/etc/default/u-boot > /dev/null
-	cat etc/initramfs-tools/modules.append | sudo tee -a ${SYSIMAGE}/etc/initramfs-tools/modules > /dev/null
-	sudo install -m644 etc/initramfs-tools/conf.d/* ${SYSIMAGE}/etc/initramfs-tools/conf.d/
-        if [ -f etc/apt/sources.list.d/kernel-obs.list.${RELEASE} ]
-	then
-          sudo install -m644 etc/apt/sources.list.d/kernel-obs.list.${RELEASE} ${SYSIMAGE}/etc/apt/sources.list.d/kernel-obs.list
-        else
-          # Use the bullseye kernel for releases we don't know about.
-          sudo install -m644 etc/apt/sources.list.d/kernel-obs.list.bullseye ${SYSIMAGE}/etc/apt/sources.list.d/kernel-obs.list
-        fi
-	sudo install -m644 etc/apt/trusted.gpg.d/* ${SYSIMAGE}/etc/apt/trusted.gpg.d/
 	sudo install etc/kernel/postinst.d/* ${SYSIMAGE}/etc/kernel/postinst.d/
 	sudo mkdir -p ${SYSIMAGE}/var/lib/alsa/
 	sudo install -m644 pinebookpro-post-install/asound.state ${SYSIMAGE}/var/lib/alsa/asound.state
         sudo mkdir -p ${SYSIMAGE}/etc/udev/hwdb.d/
         sudo install -m644 pinebookpro-post-install/10-usb-kbd.hwdb ${SYSIMAGE}/etc/udev/hwdb.d/10-usb-kbd.hwdb
+	sudo mkdir -p ${SYSIMAGE}/tmp
+	sudo install -m644 debian-packages/pbp-tools/linux/stable/*.deb ${SYSIMAGE}/tmp/
 	on_target dpkg --add-architecture arm64
 	on_target apt-get update
-	on_target apt-get install -y linux-image-pinebookpro-arm64
+	on_target bash -c "dpkg -i /tmp/*.deb"
 }
 
 do_firmware () {

@@ -11,3 +11,6 @@
 [submodule "pinebookpro-post-install"]
 	path = pinebookpro-post-install
 	url = https://gitlab.manjaro.org/manjaro-arm/packages/community/pinebookpro-post-install.git
+[submodule "debian-packages"]
+	path = debian-packages
+	url = https://github.com/xmixahlx/debian-packages.git
