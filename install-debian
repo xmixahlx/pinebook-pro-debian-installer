@@ -116,6 +116,7 @@ do_mount () {
 		sudo mount /dev/mapper/${BLKNAME}-RootFS ${SYSIMAGE}
 		[ ! -e /dev/mapper/${BLKNAME}-Home ] \
 			&& sudo cryptsetup open ${PARTITION}7 ${BLKNAME}-Home
+		sudo mkdir -p ${SYSIMAGE}/home
 		sudo mount /dev/mapper/${BLKNAME}-Home ${SYSIMAGE}/home
 	fi
 	sudo mkdir -p ${SYSIMAGE}/boot
